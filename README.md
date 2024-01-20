@@ -149,6 +149,7 @@ In general: **FIRST** try to get a pure NDI Screen Capture + Studio Monitor solu
 obs[64.exe] --obs-ndi-verbose --verbose
 ```
 
+
 # Development
 
 ## Building
@@ -173,6 +174,8 @@ sudo ldconfig
 Subsequent builds can be sped up by using `build-linux --skip-deps`.  
 See `build-linux --help` for more details.
 
+... linux package installer...
+
 ### MacOS
 In terminal:
 ```
@@ -188,6 +191,8 @@ cp -r release/obs-ndi.plugin ~/Library/Application\ Support/obs-studio/plugins/
 
 Subsequent builds can be sped up by using `build-macos --skip-deps`.  
 See `build-macos --help` for more details.
+
+... MacOS package installer...
 
 ### Windows
 In PowerShell Core 7+ terminal:
@@ -235,6 +240,7 @@ brew install --quiet obsproject/tools/clang-format@16
 ### Linux/MacOS
 Open a terminal:
 ```
+cd .../obs-ndi
 ./build-aux/run-clang-format
 ./build-aux/run-cmake-format
 ```
@@ -242,6 +248,7 @@ Open a terminal:
 ### Windows (WSL)
 Open a WSL Ubuntu terminal:
 ```
+cd .../obs-ndi
 ...
 clang-format-16 -i src/obs-ndi-filter.cpp
 clang-format-16 -i src/obs-ndi-source.cpp
@@ -325,6 +332,8 @@ To mitigate this:
 # TODOs
 - [ ] Generate readme from config file and set version number for install links.
   Similar to how https://github.com/cloudposse/build-harness does theirs.
+    https://github.com/cloudposse/build-harness/blob/master/README.yaml
+    https://github.com/cloudposse/build-harness/blob/master/.github/workflows/auto-readme.yml
 - [ ] Get build badges working again.
 - [ ] Expand usage of .github folder:
   Is supported content actually officially exhaustively documented anywhere?
@@ -335,3 +344,10 @@ To mitigate this:
 - [ ] Set up CODEOWNERS
     https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 -->
+<!--
+Idea for link variables that could be used above...
+...but markdown does not really support inline variable expansion, so this idea doesn't [yet] really work.
+-->
+[RELEASE_VERSION_LINUX]: https://github.com/obs-ndi/obs-ndi/releases/download/4.14.0/obs-ndi-4.14.0-linux-x86_64.deb
+[RELEASE_VERSION_MACOS]: https://github.com/obs-ndi/obs-ndi/releases/download/4.14.0/obs-ndi-4.14.0-macos-universal.pkg
+[RELEASE_VERSION_WINDOWS]: https://github.com/obs-ndi/obs-ndi/releases/download/4.14.0/obs-ndi-4.14.0-windows-x64-Installer.exe
