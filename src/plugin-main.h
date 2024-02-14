@@ -19,6 +19,9 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef OBSNDI_H
 #define OBSNDI_H
 
+#include "plugin-support.h"
+#include "Config.h"
+
 #include <Processing.NDI.Lib.h>
 
 #define OBS_NDI_ALPHA_FILTER_ID "premultiplied_alpha_filter"
@@ -26,6 +29,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 void main_output_start(const char *output_name);
 void main_output_stop();
 bool main_output_is_running();
+
+struct Config;
+typedef std::shared_ptr<Config> ConfigPtr;
+
+ConfigPtr GetConfig();
 
 extern const NDIlib_v4 *ndiLib;
 

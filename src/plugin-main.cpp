@@ -55,6 +55,13 @@ const char *obs_module_description()
 	return "NDI input/output integration for OBS Studio";
 }
 
+ConfigPtr _config;
+
+ConfigPtr GetConfig()
+{
+	return _config;
+}
+
 const NDIlib_v4 *ndiLib = nullptr;
 
 extern struct obs_source_info create_ndi_source_info();
@@ -90,8 +97,36 @@ bool obs_module_load(void)
 	     "[obs-ndi] obs_module_load: Qt Version: %s (runtime), %s (compiled)",
 	     qVersion(), QT_VERSION_STR);
 
+	_config = ConfigPtr(new Config());
+	_config->Load();
+
 	QMainWindow *main_window =
-		(QMainWindow *)obs_frontend_get_main_window();
+		static_cast<QMainWindow *>(obs_frontend_get_main_window());
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunreachable-code"
+	// This code is not unreachable; I have seen logs showing QT_VERSION < 6.0.0
+#endif
+	if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0)) {
+		QString message =
+			QString(obs_module_text(
+					"NDIPlugin.QtVersionError.Message"))
+				.arg(PLUGIN_NAME, PLUGIN_VERSION, "Qt6",
+				     qVersion());
+
+		blog(LOG_ERROR, "[obs-ndi] obs_module_load: %s",
+		     message.toUtf8().constData());
+
+		QMessageBox::critical(
+			main_window,
+			obs_module_text("NDIPlugin.QtVersionError.Title"),
+			message, QMessageBox::Ok, QMessageBox::NoButton);
+		return false;
+	}
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 	ndiLib = load_ndilib();
 	if (!ndiLib) {
@@ -153,11 +188,9 @@ bool obs_module_load(void)
 	obs_register_source(&alpha_filter_info);
 
 	if (main_window) {
-		Config *conf = Config::Current();
-		conf->Load();
 
 		preview_output_init(
-			conf->PreviewOutputName.toUtf8().constData());
+			GetConfig()->PreviewOutputName.toUtf8().constData());
 
 		// Ui setup
 		QAction *menu_action =
@@ -169,31 +202,25 @@ bool obs_module_load(void)
 		output_settings = new OutputSettings(main_window);
 		obs_frontend_pop_ui_translation();
 
-		auto menu_cb = [] { output_settings->ToggleShowHide(); };
+		auto menu_cb = [] {
+			output_settings->ToggleShowHide();
+		};
 		menu_action->connect(menu_action, &QAction::triggered, menu_cb);
 
 		obs_frontend_add_event_callback(
-			[](enum obs_frontend_event event, void *private_data) {
+			[](enum obs_frontend_event event, void *) {
 				if (event ==
 				    OBS_FRONTEND_EVENT_FINISHED_LOADING) {
-#if defined(__linux__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#endif
-					Config *conf = static_cast<Config *>(
-						private_data);
-#if defined(__linux__)
-#pragma GCC diagnostic pop
-#endif
-					if (conf->OutputEnabled) {
+					auto config = GetConfig().get();
+					if (config->OutputEnabled) {
 						main_output_start(
-							conf->OutputName
+							config->OutputName
 								.toUtf8()
 								.constData());
 					}
-					if (conf->PreviewOutputEnabled) {
+					if (config->PreviewOutputEnabled) {
 						preview_output_start(
-							conf->PreviewOutputName
+							config->PreviewOutputName
 								.toUtf8()
 								.constData());
 					}
@@ -204,7 +231,7 @@ bool obs_module_load(void)
 					preview_output_deinit();
 				}
 			},
-			static_cast<void *>(conf));
+			nullptr);
 	}
 
 	return true;
@@ -231,6 +258,8 @@ void obs_module_unload(void)
 	if (loaded_lib) {
 		delete loaded_lib;
 	}
+
+	_config.reset();
 
 	blog(LOG_INFO, "[obs-ndi] obs_module_unload: goodbye !");
 
