@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,27 +19,26 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <atomic>
 #include <QString>
-#include <obs-module.h>
+#include <util/config-file.h>
 
-class Config {
-public:
+struct Config {
 	Config();
-	static void OBSSaveCallback(obs_data_t *save_data, bool saving,
-				    void *private_data);
-	static Config *Current();
 	void Load();
 	void Save();
+	void SetDefaultsToGlobalStore();
+	static config_t *GetConfigStore();
 
-	bool OutputEnabled;
+	std::atomic<bool> OutputEnabled = false;
 	QString OutputName;
-	bool PreviewOutputEnabled;
+	std::atomic<bool> PreviewOutputEnabled = false;
 	QString PreviewOutputName;
-	bool TallyProgramEnabled;
-	bool TallyPreviewEnabled;
+	std::atomic<bool> TallyProgramEnabled = true;
+	std::atomic<bool> TallyPreviewEnabled = true;
 
-private:
-	static Config *_instance;
+	// Do not persist this to storage
+	std::atomic<bool> VerboseLog = false;
 };
 
 #endif // CONFIG_H

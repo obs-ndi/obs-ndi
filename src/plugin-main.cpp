@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMessageBox>
 #include <QString>
 #include <QStringList>
+#include <QVersionNumber>
 
 #include "plugin-main.h"
 #include "main-output.h"
@@ -47,12 +48,19 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 const char *obs_module_name()
 {
-	return "obs-ndi";
+	return PLUGIN_NAME;
 }
 
 const char *obs_module_description()
 {
-	return "NDI input/output integration for OBS Studio";
+	return obs_module_text("NDIPlugin.Description");
+}
+
+ConfigPtr _config;
+
+ConfigPtr GetConfig()
+{
+	return _config;
 }
 
 const NDIlib_v4 *ndiLib = nullptr;
@@ -90,30 +98,47 @@ bool obs_module_load(void)
 	     "[obs-ndi] obs_module_load: Qt Version: %s (runtime), %s (compiled)",
 	     qVersion(), QT_VERSION_STR);
 
+	_config = ConfigPtr(new Config());
+	_config->Load();
+
 	QMainWindow *main_window =
-		(QMainWindow *)obs_frontend_get_main_window();
+		static_cast<QMainWindow *>(obs_frontend_get_main_window());
+
+	QVersionNumber runtimeVersionNumber =
+		QVersionNumber::fromString(qVersion());
+	//runtimeVersionNumber = QVersionNumber::fromString("5.0.0"); // for testing purposes only
+	QVersionNumber minimumRequiredVersionNumber(6, 0, 0);
+	if (QVersionNumber::compare(runtimeVersionNumber,
+				    minimumRequiredVersionNumber) < 0) {
+		QString message =
+			QString(obs_module_text(
+					"NDIPlugin.QtVersionError.Message"))
+				.arg(PLUGIN_NAME, PLUGIN_VERSION,
+				     minimumRequiredVersionNumber.toString(),
+				     runtimeVersionNumber.toString());
+
+		blog(LOG_ERROR, "[obs-ndi] obs_module_load: %s",
+		     message.toUtf8().constData());
+
+		QMessageBox::critical(
+			main_window,
+			obs_module_text("NDIPlugin.QtVersionError.Title"),
+			message, QMessageBox::Ok, QMessageBox::NoButton);
+		return false;
+	}
 
 	ndiLib = load_ndilib();
+	//ndiLib = nullptr; // for testing purposes only
 	if (!ndiLib) {
 		blog(LOG_ERROR,
 		     "[obs-ndi] obs_module_load: load_ndilib() failed; Module won't load.");
 
-		const char *redist_url_name = "";
-#ifdef _MSC_VER
-		// Windows
-		redist_url_name = "NDIPlugin.RedistUrl.Win";
-#else
-#ifdef __APPLE__
-		// MacOS
-		redist_url_name = "NDIPlugin.RedistUrl.MacOS";
-#else
-		// Linux
-		redist_url_name = "NDIPlugin.RedistUrl.Linux";
-#endif
-#endif
-		QString redist_url = obs_module_text(redist_url_name);
+		QString ndilib_redist_url = QString(NDILIB_REDIST_URL);
 		QString message = obs_module_text("NDIPlugin.LibError.Message");
-		message += QString("<br><a href='%1'>%1</a>").arg(redist_url);
+		message += QString("<br><a href='%1'>%1</a>")
+				   .arg(ndilib_redist_url);
+		blog(LOG_ERROR, "obs_module_load: load_ndilib() message=%s",
+		     message.toUtf8().constData());
 
 		QMessageBox::critical(
 			main_window,
@@ -153,11 +178,9 @@ bool obs_module_load(void)
 	obs_register_source(&alpha_filter_info);
 
 	if (main_window) {
-		Config *conf = Config::Current();
-		conf->Load();
 
 		preview_output_init(
-			conf->PreviewOutputName.toUtf8().constData());
+			GetConfig()->PreviewOutputName.toUtf8().constData());
 
 		// Ui setup
 		QAction *menu_action =
@@ -175,27 +198,19 @@ bool obs_module_load(void)
 		menu_action->connect(menu_action, &QAction::triggered, menu_cb);
 
 		obs_frontend_add_event_callback(
-			[](enum obs_frontend_event event, void *private_data) {
+			[](enum obs_frontend_event event, void *) {
 				if (event ==
 				    OBS_FRONTEND_EVENT_FINISHED_LOADING) {
-#if defined(__linux__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#endif
-					Config *conf = static_cast<Config *>(
-						private_data);
-#if defined(__linux__)
-#pragma GCC diagnostic pop
-#endif
-					if (conf->OutputEnabled) {
+					auto config = GetConfig().get();
+					if (config->OutputEnabled) {
 						main_output_start(
-							conf->OutputName
+							config->OutputName
 								.toUtf8()
 								.constData());
 					}
-					if (conf->PreviewOutputEnabled) {
+					if (config->PreviewOutputEnabled) {
 						preview_output_start(
-							conf->PreviewOutputName
+							config->PreviewOutputName
 								.toUtf8()
 								.constData());
 					}
@@ -206,7 +221,7 @@ bool obs_module_load(void)
 					preview_output_deinit();
 				}
 			},
-			static_cast<void *>(conf));
+			nullptr);
 	}
 
 	return true;
@@ -233,6 +248,8 @@ void obs_module_unload(void)
 	if (loaded_lib) {
 		delete loaded_lib;
 	}
+
+	_config.reset();
 
 	blog(LOG_INFO, "[obs-ndi] obs_module_unload: goodbye !");
 

@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -246,15 +246,18 @@ obs_properties_t *ndi_source_getproperties(void *)
 		props, PROP_BANDWIDTH,
 		obs_module_text("NDIPlugin.SourceProps.Bandwidth"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_property_list_add_int(bw_modes,
-				  obs_module_text("NDIPlugin.BWMode.Highest"),
-				  PROP_BW_HIGHEST);
-	obs_property_list_add_int(bw_modes,
-				  obs_module_text("NDIPlugin.BWMode.Lowest"),
-				  PROP_BW_LOWEST);
-	obs_property_list_add_int(bw_modes,
-				  obs_module_text("NDIPlugin.BWMode.AudioOnly"),
-				  PROP_BW_AUDIO_ONLY);
+	obs_property_list_add_int(
+		bw_modes,
+		obs_module_text("NDIPlugin.SourceProps.Bandwidth.Highest"),
+		PROP_BW_HIGHEST);
+	obs_property_list_add_int(
+		bw_modes,
+		obs_module_text("NDIPlugin.SourceProps.Bandwidth.Lowest"),
+		PROP_BW_LOWEST);
+	obs_property_list_add_int(
+		bw_modes,
+		obs_module_text("NDIPlugin.SourceProps.Bandwidth.AudioOnly"),
+		PROP_BW_AUDIO_ONLY);
 #if defined(__linux__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow"
@@ -284,15 +287,17 @@ obs_properties_t *ndi_source_getproperties(void *)
 		props, PROP_SYNC, obs_module_text("NDIPlugin.SourceProps.Sync"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(
-		sync_modes, obs_module_text("NDIPlugin.SyncMode.NDITimestamp"),
+		sync_modes,
+		obs_module_text("NDIPlugin.SourceProps.Sync.NDITimestamp"),
 		PROP_SYNC_NDI_TIMESTAMP);
 	obs_property_list_add_int(
 		sync_modes,
-		obs_module_text("NDIPlugin.SyncMode.NDISourceTimecode"),
+		obs_module_text("NDIPlugin.SourceProps.Sync.NDISourceTimecode"),
 		PROP_SYNC_NDI_SOURCE_TIMECODE);
 
-	obs_properties_add_bool(props, PROP_FRAMESYNC,
-				obs_module_text("NDIPlugin.NDIFrameSync"));
+	obs_properties_add_bool(
+		props, PROP_FRAMESYNC,
+		obs_module_text("NDIPlugin.SourceProps.NDIFrameSync"));
 
 	obs_properties_add_bool(
 		props, PROP_HW_ACCEL,
@@ -324,19 +329,19 @@ obs_properties_t *ndi_source_getproperties(void *)
 
 	obs_property_t *latency_modes = obs_properties_add_list(
 		props, PROP_LATENCY,
-		obs_module_text("NDIPlugin.SourceProps.Latency"),
+		obs_module_text("NDIPlugin.SourceProps.LatencyMode"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(
 		latency_modes,
-		obs_module_text("NDIPlugin.SourceProps.Latency.Normal"),
+		obs_module_text("NDIPlugin.SourceProps.LatencyMode.Normal"),
 		PROP_LATENCY_NORMAL);
 	obs_property_list_add_int(
 		latency_modes,
-		obs_module_text("NDIPlugin.SourceProps.Latency.Low"),
+		obs_module_text("NDIPlugin.SourceProps.LatencyMode.Low"),
 		PROP_LATENCY_LOW);
 	obs_property_list_add_int(
 		latency_modes,
-		obs_module_text("NDIPlugin.SourceProps.Latency.Lowest"),
+		obs_module_text("NDIPlugin.SourceProps.LatencyMode.Lowest"),
 		PROP_LATENCY_LOWEST);
 
 	obs_properties_add_bool(props, PROP_AUDIO,
@@ -357,32 +362,11 @@ obs_properties_t *ndi_source_getproperties(void *)
 				 obs_module_text("NDIPlugin.SourceProps.PTZ"),
 				 OBS_GROUP_CHECKABLE, group_ptz);
 
-	auto ndi_website = obs_module_text("NDIPlugin.NDIWebsite");
-	obs_properties_add_button2(
-		props, "ndi_website", ndi_website,
-		[](obs_properties_t *, obs_property_t *, void *data) {
-#if defined(__linux__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#endif
-			QString ndi_website = (const char *)data;
-#if defined(__linux__)
-#pragma GCC diagnostic pop
-#endif
-
-#if defined(_WIN32)
-			ShellExecute(NULL, L"open",
-				     (const wchar_t *)ndi_website.utf16(), NULL,
-				     NULL, SW_SHOWNORMAL);
-#elif defined(__linux__) || defined(__APPLE__)
-			(void)!system(QString("open %1")
-					      .arg(ndi_website)
-					      .toUtf8()
-					      .constData());
-#endif
-			return true;
-		},
-		(void *)ndi_website);
+	auto ndi_website_button = obs_properties_add_button(
+		props, "ndi_website", NDI_WEB_URL, nullptr);
+	obs_property_button_set_type(ndi_website_button, OBS_BUTTON_URL);
+	obs_property_button_set_url(ndi_website_button,
+				    const_cast<char *>(NDI_WEB_URL));
 
 	return props;
 }
@@ -454,6 +438,8 @@ void *ndi_source_thread(void *data)
 
 	NDIlib_recv_create_v3_t *reset_recv_desc = &recv_desc;
 
+	auto plugin_config = GetConfig().get();
+
 	while (s->running) {
 		//
 		// Main NDI receiver loop
@@ -524,7 +510,8 @@ void *ndi_source_thread(void *data)
 			config_last_used.latency = config_most_recent.latency;
 
 			reset_recv_desc = &recv_desc;
-			if (config_most_recent.latency == PROP_LATENCY_NORMAL)
+			if (config_most_recent.latency == PROP_LATENCY_NORMAL ||
+			    config_most_recent.latency == PROP_LATENCY_LOW)
 				recv_desc.color_format =
 					NDIlib_recv_color_format_UYVY_BGRA;
 			else
@@ -631,17 +618,32 @@ void *ndi_source_thread(void *data)
 			config_last_used.hw_accel_enabled =
 				config_most_recent.hw_accel_enabled;
 
-			NDIlib_metadata_frame_t hwAccelMetadata;
-			hwAccelMetadata.p_data =
-				config_most_recent.hw_accel_enabled
-					? (char *)"<ndi_hwaccel enabled=\"true\"/>"
-					: (char *)"<ndi_hwaccel enabled=\"false\"/>";
-			blog(LOG_INFO,
-			     "[obs-ndi] ndi_source_thread: '%s' hw_accel_enabled changed; Sending NDI metadata '%s'",
-			     obs_source_ndi_receiver_name,
-			     hwAccelMetadata.p_data);
-			ndiLib->recv_send_metadata(ndi_receiver,
-						   &hwAccelMetadata);
+			if (config_most_recent.hw_accel_enabled) {
+				//
+				// From https://docs.ndi.video/docs/sdk/performance-and-implementation#receiving-video :
+				// > In the modern versions of NDI, there are internal heuristics that attempt to guess whether hardware
+				// > acceleration would enable better performance. That said, it is possible to explicitly enable hardware
+				// > acceleration if you believe that it would be beneficial for your application. This can be enabled by
+				// > sending an XML metadata message to a receiver as follows:
+				// >	<ndi_video_codec type="hardware"/>
+				// The wording of this says very unambiguously "it is possible to explicitly enable hardware acceleration",
+				// but this can in reality only ever be a **REQUEST** to enable. The enable could fail, possibly for the
+				// obvious reason that the device may not have/support hardware acceleration.
+				// Furthermore, there is no documented way to request to "disable" hardware acceleration.
+				// I have tried setting the metadata to `<ndi_video_codec type=""/>` or `<ndi_video_codec/>` and it does not
+				// crash, but I was unable to confirm if this actually disabled hardware acceleration, and am skeptical that
+				// it would/could.
+				//
+				NDIlib_metadata_frame_t hwAccelMetadata;
+				hwAccelMetadata.p_data =
+					(char *)"<ndi_video_codec type=\"hardware\"/>";
+				blog(LOG_INFO,
+				     "[obs-ndi] ndi_source_thread: '%s' hw_accel_enabled changed to enabled; Sending NDI metadata '%s' to request hardware acceleration",
+				     obs_source_ndi_receiver_name,
+				     hwAccelMetadata.p_data);
+				ndiLib->recv_send_metadata(ndi_receiver,
+							   &hwAccelMetadata);
+			}
 		}
 
 		if (config_most_recent.ptz.enabled) {
@@ -701,7 +703,9 @@ void *ndi_source_thread(void *data)
 				1024);
 			if (audio_frame2.p_data &&
 			    (audio_frame2.timestamp > timestamp_audio)) {
-				//blog(LOG_INFO, "a");//udio_frame";
+				if (plugin_config->VerboseLog) {
+					blog(LOG_INFO, "a"); //udio_frame";
+				}
 				timestamp_audio = audio_frame2.timestamp;
 				ndi_source_thread_process_audio2(
 					&config_most_recent, &audio_frame2,
@@ -719,7 +723,9 @@ void *ndi_source_thread(void *data)
 				NDIlib_frame_format_type_progressive);
 			if (video_frame2.p_data &&
 			    (video_frame2.timestamp > timestamp_video)) {
-				//blog(LOG_INFO, "v");//ideo_frame";
+				if (plugin_config->VerboseLog) {
+					blog(LOG_INFO, "v"); //ideo_frame";
+				}
 				timestamp_video = video_frame2.timestamp;
 				ndi_source_thread_process_video2(
 					&config_most_recent, &video_frame2,
@@ -738,6 +744,9 @@ void *ndi_source_thread(void *data)
 								 nullptr, 100);
 
 			if (frame_received == NDIlib_frame_type_audio) {
+				if (plugin_config->VerboseLog) {
+					blog(LOG_INFO, "a"); //udio_frame";
+				}
 				ndi_source_thread_process_audio3(
 					&config_most_recent, &audio_frame3,
 					obs_source, &obs_audio_frame);
@@ -747,6 +756,9 @@ void *ndi_source_thread(void *data)
 			}
 
 			if (frame_received == NDIlib_frame_type_video) {
+				if (plugin_config->VerboseLog) {
+					blog(LOG_INFO, "v"); //ideo_frame";
+				}
 				ndi_source_thread_process_video2(
 					&config_most_recent, &video_frame2,
 					obs_source, &obs_video_frame);
@@ -1009,10 +1021,10 @@ void ndi_source_update(void *data, obs_data_t *settings)
 	config.ptz = {ptz_enabled, pan, tilt, zoom};
 
 	// Update tally status
-	Config *conf = Config::Current();
-	config.tally.on_preview = conf->TallyPreviewEnabled &&
+	auto plugin_config = GetConfig().get();
+	config.tally.on_preview = plugin_config->TallyPreviewEnabled &&
 				  obs_source_showing(obs_source);
-	config.tally.on_program = conf->TallyProgramEnabled &&
+	config.tally.on_program = plugin_config->TallyProgramEnabled &&
 				  obs_source_active(obs_source);
 
 	s->config = config;
@@ -1034,7 +1046,7 @@ void ndi_source_shown(void *data)
 	auto s = (ndi_source_t *)data;
 	auto name = obs_source_get_name(s->obs_source);
 	blog(LOG_INFO, "[obs-ndi] ndi_source_shown('%s'...)", name);
-	s->config.tally.on_preview = (Config::Current())->TallyPreviewEnabled;
+	s->config.tally.on_preview = GetConfig()->TallyPreviewEnabled;
 }
 
 void ndi_source_hidden(void *data)
@@ -1050,7 +1062,7 @@ void ndi_source_activated(void *data)
 	auto s = (ndi_source_t *)data;
 	auto name = obs_source_get_name(s->obs_source);
 	blog(LOG_INFO, "[obs-ndi] ndi_source_activated('%s'...)", name);
-	s->config.tally.on_program = (Config::Current())->TallyProgramEnabled;
+	s->config.tally.on_program = GetConfig()->TallyProgramEnabled;
 
 	if (!s->running) {
 		ndi_source_thread_start(s);
