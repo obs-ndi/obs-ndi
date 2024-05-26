@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,19 +15,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
-
-#ifndef CONFIG_H
-#define CONFIG_H
+#pragma once
 
 #include <QString>
+#include <QVersionNumber>
 #include <obs-module.h>
 
 class Config {
 public:
-	Config();
-	static void OBSSaveCallback(obs_data_t *save_data, bool saving,
-				    void *private_data);
 	static Config *Current();
+	static bool VerboseLog();
+
+	Config();
 	void Load();
 	void Save();
 
@@ -40,8 +39,15 @@ public:
 	bool TallyProgramEnabled;
 	bool TallyPreviewEnabled;
 
+	QString GetProgramGUID();
+	bool AutoCheckForUpdates();
+	void AutoCheckForUpdates(bool value);
+	void SkipUpdateVersion(const QVersionNumber &version);
+	QVersionNumber SkipUpdateVersion();
+
 private:
 	static Config *_instance;
-};
 
-#endif // CONFIG_H
+	// Do not persist this to storage
+	bool _VerboseLog;
+};

@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -90,7 +90,7 @@ typedef struct {
 
 const char *ndi_output_getname(void *)
 {
-	return obs_module_text("NDIPlugin.OutputName");
+	return Str("NDIPlugin.OutputName");
 }
 
 obs_properties_t *ndi_output_getproperties(void *)

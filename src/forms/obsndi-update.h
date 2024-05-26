@@ -17,6 +17,20 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 */
 #pragma once
 
-void main_output_start();
-void main_output_stop();
-bool main_output_is_running();
+#include <QDialog>
+
+#include "ui_obsndi-update.h"
+
+class ObsNdiUpdate : public QDialog {
+	Q_OBJECT
+public:
+	explicit ObsNdiUpdate(const QJsonDocument &jsonResponse,
+			      QWidget *parent = nullptr);
+	~ObsNdiUpdate();
+
+private:
+	Ui::ObsNdiUpdate *ui;
+};
+
+void updateCheckStop();
+void updateCheckStart(bool force = false);

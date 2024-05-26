@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,18 +15,29 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along
 with this program. If not, see <https://www.gnu.org/licenses/>
 */
+#pragma once
 
-#ifndef OBSNDI_H
-#define OBSNDI_H
+#include "plugin-support.h"
+#include "Config.h"
 
 #include <Processing.NDI.Lib.h>
 
 #define OBS_NDI_ALPHA_FILTER_ID "premultiplied_alpha_filter"
 
-void main_output_start(const char *output_name, const char *output_groups);
-void main_output_stop();
-bool main_output_is_running();
+// Required per `NDI SDK License Agreement.pdf` `3 LICENSING`
+// "• Your application must provide a link to http://ndi.video ..."
+#define NDI_WEB_URL "https://ndi.video"
 
-extern const NDIlib_v4 *ndiLib;
+#define NDI_TOOLS_URL "https://ndi.video/tools/download/"
 
-#endif // OBSNDI_H
+#if !(defined(_WIN32) || defined(__APPLE__))
+// Linux
+#undef NDILIB_REDIST_URL
+#define NDILIB_REDIST_URL \
+	"https://github.com/obs-ndi/obs-ndi/blob/master/CI/libndi-get.sh"
+#endif
+
+extern const NDIlib_v5 *ndiLib;
+
+const char *Str(const char *lookup);
+QString QTStr(const char *lookupVal);

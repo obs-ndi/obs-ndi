@@ -1,6 +1,6 @@
 /*
 obs-ndi
-Copyright (C) 2016-2023 Stéphane Lepin <stephane.lepin@gmail.com>
+Copyright (C) 2016-2024 OBS-NDI Project <obsndi@obsndiproject.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,6 +28,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <media-io/video-frame.h>
 #include <media-io/audio-resampler.h>
 #include <QString>
+#include <QDesktopServices>
+#include <QUrl>
 
 #include "plugin-main.h"
 
@@ -63,12 +65,12 @@ typedef struct {
 
 const char *ndi_filter_getname(void *)
 {
-	return obs_module_text("NDIPlugin.FilterName");
+	return Str("NDIPlugin.FilterName");
 }
 
 const char *ndi_audiofilter_getname(void *)
 {
-	return obs_module_text("NDIPlugin.AudioFilterName");
+	return Str("NDIPlugin.AudioFilterName");
 }
 
 void ndi_filter_update(void *data, obs_data_t *settings);
@@ -78,19 +80,16 @@ obs_properties_t *ndi_filter_getproperties(void *)
 	obs_properties_t *props = obs_properties_create();
 	obs_properties_set_flags(props, OBS_PROPERTIES_DEFER_UPDATE);
 
-	obs_properties_add_text(
-		props, FLT_PROP_NAME,
-		obs_module_text("NDIPlugin.FilterProps.NDIName"),
-		OBS_TEXT_DEFAULT);
+	obs_properties_add_text(props, FLT_PROP_NAME,
+				Str("NDIPlugin.FilterProps.NDIName"),
+				OBS_TEXT_DEFAULT);
 
-	obs_properties_add_text(
-		props, FLT_PROP_GROUPS,
-		obs_module_text("NDIPlugin.FilterProps.NDIGroups"),
-		OBS_TEXT_DEFAULT);
+	obs_properties_add_text(props, FLT_PROP_GROUPS,
+				Str("NDIPlugin.FilterProps.NDIGroups"),
+				OBS_TEXT_DEFAULT);
 
 	obs_properties_add_button(
-		props, "ndi_apply",
-		obs_module_text("NDIPlugin.FilterProps.ApplySettings"),
+		props, "ndi_apply", Str("NDIPlugin.FilterProps.ApplySettings"),
 		[](obs_properties_t *, obs_property_t *, void *private_data) {
 			auto s = (ndi_filter_t *)private_data;
 			auto settings = obs_source_get_settings(s->context);
@@ -99,32 +98,14 @@ obs_properties_t *ndi_filter_getproperties(void *)
 			return true;
 		});
 
-	auto ndi_website = obs_module_text("NDIPlugin.NDIWebsite");
-	obs_properties_add_button2(
-		props, "ndi_website", ndi_website,
-		[](obs_properties_t *, obs_property_t *, void *data) {
-#if defined(__linux__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wshadow"
-#endif
-			QString ndi_website = (const char *)data;
-#if defined(__linux__)
-#pragma GCC diagnostic pop
-#endif
-
-#if defined(_WIN32)
-			ShellExecute(NULL, L"open",
-				     (const wchar_t *)ndi_website.utf16(), NULL,
-				     NULL, SW_SHOWNORMAL);
-#elif defined(__linux__) || defined(__APPLE__)
-			(void)!system(QString("open %1")
-					      .arg(ndi_website)
-					      .toUtf8()
-					      .constData());
-#endif
-			return true;
-		},
-		(void *)ndi_website);
+	obs_properties_t *group_ndi = obs_properties_create();
+	auto ndi_website_button = obs_properties_add_button(
+		group_ndi, "ndi_website", NDI_WEB_URL, nullptr);
+	obs_property_button_set_type(ndi_website_button, OBS_BUTTON_URL);
+	obs_property_button_set_url(ndi_website_button,
+				    const_cast<char *>(NDI_WEB_URL));
+	obs_properties_add_group(props, "ndi", "NDI®", OBS_GROUP_NORMAL,
+				 group_ndi);
 
 	return props;
 }
@@ -133,7 +114,7 @@ void ndi_filter_getdefaults(obs_data_t *defaults)
 {
 	obs_data_set_default_string(
 		defaults, FLT_PROP_NAME,
-		obs_module_text("NDIPlugin.FilterProps.NDIName.Default"));
+		Str("NDIPlugin.FilterProps.NDIName.Default"));
 	obs_data_set_default_string(defaults, FLT_PROP_GROUPS, "");
 }
 
